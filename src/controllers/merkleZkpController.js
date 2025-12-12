@@ -63,6 +63,7 @@ class MerkleZKPController {
   async verify(req, res) {
     try {
       const { userId, nik, nama, ttl, key } = req.body;
+      console.log('Data untuk verifikasi:', { userId, nik, nama, ttl, key });
       if (!userId || !nik || !nama || !ttl || !key) {
         return res.status(400).json({ error: "Missing required fields." });
       }

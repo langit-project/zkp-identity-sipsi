@@ -1,7 +1,7 @@
 // Test script to demonstrate the Merkle ZKP flow
 const axios = require("axios");
 
-const API_BASE = "http://localhost:3002/api/merkle-zkp";
+const API_BASE = "https://zkp-sipsi-ai.langitgo.com/api/merkle-zkp";
 
 async function testFlow() {
   try {
@@ -16,11 +16,11 @@ async function testFlow() {
     // 2. Submit user data
     console.log("2️⃣ Submitting user data...");
     const userData = {
-      userId: "user123",
-      nik: "3204280701000002",
-      nama: "John Doe",
-      ttl: "20000101",
-      key: "mySecretKey",
+      userId: '3201010102980100',
+      nik: '3201010102980100',
+      nama: 'Zahra Anggraini Dewi',
+      ttl: '20000101',
+      key: 'zahra'
     };
 
     const submitRes = await axios.post(`${API_BASE}/submit-hash`, userData);
@@ -29,19 +29,19 @@ async function testFlow() {
 
     // 3. Check submission status
     console.log("3️⃣ Checking submission status...");
-    const submissionRes = await axios.get(`${API_BASE}/has-submitted/user123`);
+    const submissionRes = await axios.get(`${API_BASE}/has-submitted/3201010102980100`);
     console.log("Has submitted:", submissionRes.data);
     console.log("");
 
     // 4. Admin approves user
     console.log("4️⃣ Admin approving user...");
-    const approveRes = await axios.post(`${API_BASE}/approve`, { userId: "user123" });
+    const approveRes = await axios.post(`${API_BASE}/approve`, { userId: "3201010102980100" });
     console.log("Approve response:", approveRes.data);
     console.log("");
 
     // 5. Check approval status
     console.log("5️⃣ Checking approval status...");
-    const approvalRes = await axios.get(`${API_BASE}/is-approved/user123`);
+    const approvalRes = await axios.get(`${API_BASE}/is-approved/3201010102980100`);
     console.log("Is approved:", approvalRes.data);
     console.log("");
 
@@ -59,7 +59,7 @@ async function testFlow() {
 
     // 8. Check verification status
     console.log("8️⃣ Checking verification status...");
-    const verificationRes = await axios.get(`${API_BASE}/is-verified/user123`);
+    const verificationRes = await axios.get(`${API_BASE}/is-verified/3201010102980100`);
     console.log("Is verified:", verificationRes.data);
     console.log("");
 

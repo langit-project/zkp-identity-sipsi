@@ -16,6 +16,7 @@
   "dependencies": {
     "circomlib": "^2.0.5",
     "circomlibjs": "^0.1.7",
+    "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "ethers": "^6.13.5",
     "express": "^5.1.0",
@@ -24,10 +25,10 @@
     "snarkjs": "^0.7.5"
   },
   "devDependencies": {
-    "nodemon": "^3.0.3",
+    "axios": "^1.6.0",
     "jest": "^29.7.0",
     "jest-environment-node": "^29.7.0",
-    "axios": "^1.6.0"
+    "nodemon": "^3.0.3"
   },
   "jest": {
     "testEnvironment": "node",
