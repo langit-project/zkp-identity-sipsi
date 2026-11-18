@@ -4,6 +4,9 @@ const { generateUserHash } = require("../utils/hash");
 const userMerkleModel = require("../models/userMerkleModel");
 const crypto = require("crypto");
 
+// Helper standar untuk konversi BigInt atau Hex string ke format Bytes32 (0x + 64 hex chars)
+const toHex32 = (val) => "0x" + BigInt(val).toString(16).padStart(64, "0");
+
 let currentMerkleTree = null;
 
 class MerkleZKPService {
@@ -48,12 +51,14 @@ class MerkleZKPService {
   }
 
 
+  // [DISERTASI] Tahap 1: Pengajuan Identitas Pemohon & Pembuatan Salt 128 bit
   async submitUserData(userId, nik, nama, ttl, key) {
     console.group("🌱 submitUserData started for userId:", userId);
 
     const userHash = generateUserHash(userId);
     console.log("🔹 Generated userHash:", userHash);
 
+    // [DISERTASI] Salt 128 bit (crypto.randomBytes(16) = 16 bytes = 128 bit)
     const salt = crypto.randomBytes(16).toString("hex");
     const saltBigInt = BigInt("0x" + salt);
     console.log("🔹 Generated saltBigInt:", saltBigInt);
@@ -144,7 +149,7 @@ class MerkleZKPService {
       console.log("   ├─ Root (bytes32):", rootBytes32);
       console.log("   └─ Total leaves:", leavesBytes32.length);
 
-      // 7️⃣ Kirim update ke on-chain
+      // 7️⃣ [DISERTASI] Persetujuan batch & pengiriman akar Merkle + daun ke smart contract dalam 1 transaksi
       console.log("🔹 Sending on-chain transaction (updateMerkleRootWithIdentities)...");
       const tx = await merkleZkpContract.updateMerkleRootWithIdentities(rootBytes32, leavesBytes32);
       const receipt = await tx.wait();
@@ -341,239 +346,6 @@ class MerkleZKPService {
 
 
 
-  // async approveUser(userId) {
-  //   console.log("🌱 approveUser started for userId:", userId);
-
-  //   const originalUserData = await userMerkleModel.getUser(userId);
-  //   if (!originalUserData) throw new Error("❌ User data not found");
-
-  //   // Backup for rollback
-  //   const userBackup = { ...originalUserData };
-  //   const merkleBackup = await userMerkleModel.getMerkleTree();
-
-  //   try {
-  //     console.log("🔹 Updating user status to 'approved'");
-  //     originalUserData.status = "approved";
-  //     originalUserData.approvedAt = Date.now();
-  //     await userMerkleModel.saveUser(userId, originalUserData);
-
-  //     console.log("🔹 Rebuilding Merkle tree with approved users...");
-  //     const { merkleTree, newRoot, leafIndex, identityHashes } = await this.rebuildMerkleTree(userId);
-
-  //     if (leafIndex < 0) throw new Error("❌ Leaf index not found after rebuild");
-
-  //     console.log("🔹 Saving Merkle tree to userMerkleModel...");
-  //     await userMerkleModel.saveMerkleTree({ root: newRoot, leaves: merkleTree.leavesData, timestamp: new Date().toISOString() });
-
-  //     originalUserData.leafIndex = leafIndex;
-  //     await userMerkleModel.saveUser(userId, originalUserData);
-
-  //     console.log("🔹 Preparing data for on-chain update...");
-  //     const rootBytes32 = "0x" + BigInt(newRoot).toString(16).padStart(64, "0");
-  //     const identityHashesBytes32 = identityHashes.map(h => "0x" + BigInt(h).toString(16).padStart(64, "0"));
-
-  //     console.log("🔹 Sending on-chain transaction to update Merkle root...");
-  //     const tx = await merkleZkpContract.updateMerkleRootWithIdentities(rootBytes32, identityHashesBytes32);
-  //     await tx.wait();
-
-  //     const updatedRoot = await merkleZkpContract.currentMerkleRoot();
-  //     console.log("✅ On-chain Merkle root updated successfully:", updatedRoot);
-
-  //     return updatedRoot;
-  //   } catch (error) {
-  //     console.error("❌ Approve process failed, rolling back changes:", error);
-
-  //     // Rollback user data
-  //     if (userBackup) {
-  //       await userMerkleModel.saveUser(userId, userBackup);
-  //       console.log("↩️ User data rolled back to original state");
-  //     }
-
-  //     // Rollback Merkle tree
-  //     if (merkleBackup) {
-  //       await userMerkleModel.saveMerkleTree(merkleBackup);
-  //       console.log("↩️ Merkle tree rolled back to original state");
-  //     }
-
-  //     throw new Error("Approval failed and rollback completed");
-  //   }
-  // }
-
-  // async rebuildMerkleTree(targetUserId = null) {
-  //   console.log("🔄 Rebuilding Merkle Tree (approved users only)...");
-
-  //   // 1️⃣ Ambil semua approved users
-  //   const approvedUsersMap = await userMerkleModel.getApprovedUsers();
-  //   let approvedUsersList = Object.values(approvedUsersMap);
-
-  //   // 2️⃣ Urutkan berdasarkan identityHash (deterministik)
-  //   approvedUsersList = approvedUsersList.sort((a, b) => {
-  //     return (BigInt(a.identityHash) > BigInt(b.identityHash)) ? 1 : -1;
-  //   });
-
-  //   console.log(`📦 Total approved users: ${approvedUsersList.length}`);
-
-  //   const leavesData = [];
-  //   const identityHashes = [];
-
-  //   // 3️⃣ Siapkan leavesData dari identityHash + salt yang tersimpan
-  //   for (const user of approvedUsersList) {
-  //     console.log(`🔹 User: ${user.userId}, identityHash: ${user.identityHash}, salt: ${user.salt}`);
-  //     leavesData.push({
-  //       identityHash: user.identityHash,
-  //       salt: user.salt,
-  //     });
-  //     identityHashes.push(user.identityHash);
-  //   }
-
-  //   // 4️⃣ Hitung index leaf target
-  //   const targetHash = targetUserId && approvedUsersMap[targetUserId]
-  //     ? approvedUsersMap[targetUserId].identityHash
-  //     : null;
-  //   const targetLeafIndex = targetHash ? identityHashes.findIndex(h => h === targetHash) : -1;
-  //   console.log(`🔍 Target leaf index for user ${targetUserId}: ${targetLeafIndex}`);
-
-  //   // 5️⃣ Build Merkle tree
-  //   console.log("\n🧩 Building Merkle Tree...");
-  //   const { tree, root } = await buildMerkleTreeFromHashes(leavesData);
-  //   this.currentMerkleTree = tree;
-  //   this.currentMerkleTree.leavesData = leavesData;
-
-  //   console.log(`✅ Merkle Tree built successfully`);
-  //   console.log(`   ├─ Root: ${root}`);
-  //   console.log(`   └─ Leaves count: ${leavesData.length}`);
-
-  //   // 6️⃣ Persist ke userMerkleModel (bukan file)
-  //   await userMerkleModel.saveMerkleTree({
-  //     root,
-  //     leaves: leavesData,
-  //     timestamp: Date.now(),
-  //   });
-  //   console.log("💾 Saved Merkle tree to userMerkleModel");
-
-  //   return {
-  //     merkleTree: tree,
-  //     newRoot: root,
-  //     leafIndex: targetLeafIndex,
-  //     identityHashes,
-  //   };
-  // }
-
-  // async verifyUser(userId, nik, nama, ttl, key) {
-  //   console.log("🔹 Starting verification for userId:", userId);
-
-  //   const userData = await userMerkleModel.getUser(userId);
-  //   if (!userData) throw new Error("User data not found");
-  //   if (userData.status !== "approved" && userData.status !== "verified") {
-  //     throw new Error("User not approved yet");
-  //   }
-
-  //   // 1️⃣ Hitung identityHash berdasarkan data input
-  //   const { identityHash: inputHash } = await this.calculateIdentityHash(nik, nama, ttl, key);
-  //   console.log("🔹 Calculated identityHash from input:", inputHash.toString());
-
-  //   // 2️⃣ Cocokkan dengan identityHash yang tersimpan
-  //   if (inputHash.toString() !== userData.identityHash) {
-  //     throw new Error("Identity data mismatch");
-  //   }
-
-  //   // 3️⃣ Pastikan Merkle Tree lokal ada
-  //   if (!currentMerkleTree || !currentMerkleTree.leavesData?.length) {
-  //     const rebuilt = await this.rebuildMerkleTree();
-  //     currentMerkleTree = rebuilt.merkleTree;
-  //   }
-
-  //   // 4️⃣ Ambil leavesData dari model atau currentMerkleTree
-  //   const savedTree = await userMerkleModel.getMerkleTree();
-  //   let leavesData = currentMerkleTree.leavesData?.length
-  //     ? currentMerkleTree.leavesData
-  //     : (savedTree?.leaves || []);
-
-  //   // 5️⃣ Sinkronisasi root lokal vs kontrak
-  //   const contractRootHex = await merkleZkpContract.currentMerkleRoot();
-  //   const contractRootBig = BigInt(contractRootHex);
-
-  //   const { root: localRootStr } = await buildMerkleTreeFromHashes(leavesData);
-  //   if (BigInt(localRootStr) !== contractRootBig) {
-  //     console.log("🔄 Local root mismatch. Rebuilding Merkle Tree...");
-  //     const rebuiltFull = await this.rebuildMerkleTree();
-  //     currentMerkleTree = rebuiltFull.merkleTree;
-  //     leavesData = currentMerkleTree.leavesData?.length
-  //       ? currentMerkleTree.leavesData
-  //       : (savedTree?.leaves || []);
-
-  //     const { root: localRootStr2 } = await buildMerkleTreeFromHashes(leavesData);
-  //     if (BigInt(localRootStr2) !== contractRootBig) {
-  //       throw new Error("Merkle root mismatch - tree may be outdated");
-  //     }
-  //   }
-
-  //   // 6️⃣ Recompute leafIndex berdasarkan identityHash dari merkleUsers
-  //   const identityHashesNow = leavesData.map(l => l.identityHash);
-  //   const liveLeafIndex = identityHashesNow.findIndex(h => h === userData.identityHash);
-  //   if (liveLeafIndex < 0) throw new Error("Identity not in current Merkle set");
-
-  //   console.log("✅ CONTRACT ROOT:", contractRootBig.toString());
-  //   console.log("✅ LOCAL ROOT   :", localRootStr);
-  //   console.log("✅ NUMBER OF LEAVES:", leavesData.length);
-  //   leavesData.forEach((leaf, i) => console.log(`[${i}]`, leaf.identityHash));
-
-  //   // 7️⃣ Generate proof menggunakan identityHash + salt dari merkleUsers
-  //   const proofData = {
-  //     nik,
-  //     nama,
-  //     ttl,
-  //     key,
-  //     salt: userData.salt,
-  //     leafIndex: liveLeafIndex,
-  //     merkleTree: currentMerkleTree,
-  //   };
-
-  //   console.log("🔹 Generating Merkle proof with leafIndex:", liveLeafIndex);
-  //   let proof, publicSignals;
-  //   try {
-  //     ({ proof, publicSignals } = await generateMerkleProof(proofData));
-  //   } catch (err) {
-  //     console.error("❌ Failed to generate Merkle proof:", err);
-  //     throw new Error("Merkle proof generation failed");
-  //   }
-
-  //   // 8️⃣ Validasi root proof vs kontrak
-  //   const proofRootBigInt = BigInt(publicSignals[0]);
-  //   if (contractRootBig !== proofRootBigInt) {
-  //     console.error("❌ Root mismatch:", {
-  //       contractRootDec: contractRootBig.toString(),
-  //       proofRootDec: proofRootBigInt.toString(),
-  //       leafIndex: liveLeafIndex,
-  //     });
-  //     throw new Error("Merkle root mismatch - tree may be outdated");
-  //   }
-
-  //   // 9️⃣ Submit ke kontrak
-  //   try {
-  //     const identityHashBytes32 = "0x" + BigInt(userData.identityHash).toString(16).padStart(64, "0");
-  //     const tx = await merkleZkpContract.verifyIdentity(proof.a, proof.b, proof.c, identityHashBytes32);
-  //     const receipt = await tx.wait();
-
-  //     // 10️⃣ Update status user di local model
-  //     userData.status = "verified";
-  //     userData.verifiedAt = new Date().toISOString();
-  //     userData.verificationTx = receipt.hash;
-  //     await userMerkleModel.saveUser(userId, userData);
-
-  //     console.log("✅ User verified successfully. Tx hash:", receipt.hash);
-  //     return { transactionHash: receipt.hash, merkleRoot: contractRootHex };
-  //   } catch (err) {
-  //     console.error("❌ Failed to submit verification transaction:", err);
-  //     // Rollback status tetap approved
-  //     userData.status = "approved";
-  //     userData.verifiedAt = null;
-  //     userData.verificationTx = null;
-  //     await userMerkleModel.saveUser(userId, userData);
-  //     throw new Error("Failed to verify identity on-chain");
-  //   }
-  // }
-
   async isVerified(userId) {
     const userData = await userMerkleModel.getUser(userId);
     if (!userData) return false;
@@ -614,7 +386,8 @@ class MerkleZKPService {
 
   async getMerkleTreeInfo() {
     const currentRoot = await merkleZkpContract.currentMerkleRoot();
-    const contractInfo = await merkleZkpContract.getContractInfo();
+    const admin = await merkleZkpContract.admin();
+    const totalIdentities = await merkleZkpContract.totalApprovedIdentities();
     const allUsers = await userMerkleModel.getAllUsers();
     const approvedUsers = await userMerkleModel.getApprovedUsers();
 
@@ -622,24 +395,25 @@ class MerkleZKPService {
       currentRoot: currentRoot.toString(),
       totalApprovedUsers: Object.keys(approvedUsers).length,
       totalSubmittedUsers: Object.keys(allUsers).length,
-      totalApprovedOnChain: contractInfo.totalIdentities.toString(),
+      totalApprovedOnChain: totalIdentities.toString(),
       treeHeight: 16,
       maxUsers: 65536,
       contractInfo: {
-        merkleRoot: contractInfo.merkleRoot,
-        admin: contractInfo.contractAdmin,
+        merkleRoot: currentRoot.toString(),
+        admin: admin,
       },
     };
   }
 
+  // [DISERTASI] Pers. (8) identityHash = Poseidon4(NIK, Nama, TTL, k)
   async calculateIdentityHash(nik, nama, ttl, key) {
     // This is used internally - matches the circuit logic
     const poseidon = await require("circomlibjs").buildPoseidon();
 
     const nikNorm  = String(nik).replace(/\D/g, "");       // hanya digit
     const ttlNorm  = String(ttl).replace(/\D/g, "");       // YYYYMMDD 8 digit
-    const namaNorm = String(nama).trim();                  // tambahkan .toLowerCase() jika circuit lowercase
-    const keyNorm  = String(key).trim();                   // idem
+    const namaNorm = String(nama).trim();                  // nama pemohon
+    const keyNorm  = String(key).trim();                   // kata kunci rahasia (k)
 
     const namaHex = Buffer.from(namaNorm, "utf8").toString("hex");
     const namaBigInt = BigInt("0x" + namaHex);
@@ -648,6 +422,7 @@ class MerkleZKPService {
 
     const inputArray = [BigInt(nikNorm), namaBigInt, BigInt(ttlNorm), keyBigInt];
 
+    // [DISERTASI] Inti Pers. (8): Evaluasi Poseidon4 terhadap 4 elemen input
     const identityHash = poseidon.F.toObject(poseidon(inputArray));
 
     console.log("Calculated Identity Hash:", identityHash.toString()); // Log untuk debugging
@@ -658,11 +433,13 @@ class MerkleZKPService {
 
   // Additional helper methods
   async getContractInfo() {
-    const contractInfo = await merkleZkpContract.getContractInfo();
+    const currentRoot = await merkleZkpContract.currentMerkleRoot();
+    const admin = await merkleZkpContract.admin();
+    const totalIdentities = await merkleZkpContract.totalApprovedIdentities();
     return {
-      currentRoot: contractInfo.merkleRoot,
-      totalIdentities: contractInfo.totalIdentities.toString(),
-      admin: contractInfo.contractAdmin,
+      currentRoot: currentRoot.toString(),
+      totalIdentities: totalIdentities.toString(),
+      admin: admin,
     };
   }
 

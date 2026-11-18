@@ -1,7 +1,6 @@
 require("dotenv").config();
 const express = require("express");
-const cors = require("cors"); // <-- jangan lupa ini
-// const zkpRoutes = require("./src/routes/zkpRoutes");
+const cors = require("cors");
 const zkpRoutes = require("./src/routes/merkleZkpRoutes");
 const app = express();
 

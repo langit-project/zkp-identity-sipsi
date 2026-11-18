@@ -4,7 +4,9 @@ const merkleZkpController = require("../controllers/merkleZkpController");
 
 // ===== CORE ROUTES (Same as original flow) =====
 // These maintain compatibility with existing frontend
+// Health / Status endpoint (informasi status service, smart contract, & Merkle tree)
 router.get("/", merkleZkpController.getStatus);
+router.get("/health", merkleZkpController.getStatus);
 router.post("/submit-hash", merkleZkpController.submitHash);
 router.post("/approve", merkleZkpController.approveHash);
 router.post("/verify", merkleZkpController.verify);

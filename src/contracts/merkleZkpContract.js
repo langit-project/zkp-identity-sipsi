@@ -2,11 +2,11 @@
 const { ethers } = require("ethers");
 require("dotenv").config();
 
-// Import the contract ABI - you'll need to generate this after deployment
+// Import the contract ABI - IdentityMerkleZKP (v0.5 leaf model)
 const contract = require("./IdentityMerkleZKP.json");
 const abi = contract.abi;
 
-const provider = new ethers.JsonRpcProvider(process.env.POLYGON_MAINNET_RPC_URL);
+const provider = new ethers.JsonRpcProvider(process.env.POLYGON_MAINNET_RPC_URL || "https://polygon-bor-rpc.publicnode.com");
 const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
 const merkleZkpContract = new ethers.Contract(process.env.MERKLE_ZKP_CONTRACT_ADDRESS, abi, signer);
@@ -14,7 +14,6 @@ const merkleZkpContract = new ethers.Contract(process.env.MERKLE_ZKP_CONTRACT_AD
 module.exports = {
   // Contract info
   getAddress: () => merkleZkpContract.getAddress(),
-  getContractInfo: () => merkleZkpContract.getContractInfo(),
 
   // Admin functions
   updateMerkleRoot: (newRoot) => merkleZkpContract.updateMerkleRoot(newRoot),
@@ -24,19 +23,19 @@ module.exports = {
   revokeIdentity: (identityHash) => merkleZkpContract.revokeIdentity(identityHash),
   transferAdmin: (newAdminAddress) => merkleZkpContract.transferAdmin(newAdminAddress),
 
-  // User verification
-  verifyIdentity: (a, b, c, identityHash) =>
-    merkleZkpContract.verifyIdentity(a, b, c, identityHash),
+  // User verification (mengirim leaf bytes32)
+  verifyIdentity: (a, b, c, leaf) =>
+    merkleZkpContract.verifyIdentity(a, b, c, leaf),
 
   // View functions
   isIdentityApproved: (identityHash) => merkleZkpContract.isIdentityApproved(identityHash),
-  getIdentityInfo: (identityHash) => merkleZkpContract.getIdentityInfo(identityHash),
-  computeIdentityHash: (nik, nama, ttl, key) =>
-    merkleZkpContract.computeIdentityHash(nik, nama, ttl, key),
+  viewLeaf: (index) => merkleZkpContract.viewLeaf(index),
+  identityLeaves: (index) => merkleZkpContract.identityLeaves(index),
 
   // Public variables
   currentMerkleRoot: () => merkleZkpContract.currentMerkleRoot(),
   totalApprovedIdentities: () => merkleZkpContract.totalApprovedIdentities(),
+  totalLeaves: () => merkleZkpContract.totalLeaves(),
   admin: () => merkleZkpContract.admin(),
   approvedIdentities: (identityHash) => merkleZkpContract.approvedIdentities(identityHash),
   identityApprovalBlock: (identityHash) => merkleZkpContract.identityApprovalBlock(identityHash),

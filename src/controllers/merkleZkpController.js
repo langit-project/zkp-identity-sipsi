@@ -6,13 +6,28 @@ class MerkleZKPController {
       const contractAddress = await merkleZkpService.getContractAddress();
       const merkleInfo = await merkleZkpService.getMerkleTreeInfo();
       res.json({
-        status: "ZKP Merkle backend is running",
-        contractAddress,
-        currentMerkleRoot: merkleInfo.currentRoot,
-        totalApprovedOnChain: merkleInfo.totalApprovedOnChain,
+        service: "zkp-identity-backend",
+        status: "healthy",
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        contract: {
+          address: contractAddress,
+          currentMerkleRoot: merkleInfo.currentRoot,
+          totalApprovedOnChain: merkleInfo.totalApprovedOnChain,
+        },
+        merkleTree: {
+          totalApprovedUsers: merkleInfo.totalApprovedUsers,
+          treeHeight: merkleInfo.treeHeight,
+          maxCapacity: merkleInfo.maxUsers,
+        }
       });
     } catch (e) {
-      res.status(500).json({ error: "Contract failed to load.", message: e.message });
+      res.status(500).json({
+        service: "zkp-identity-backend",
+        status: "degraded",
+        error: "Contract connection failed",
+        message: e.message
+      });
     }
   }
 
